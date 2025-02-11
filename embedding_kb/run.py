@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 from tqdm import tqdm
 from naptha_sdk.schemas import KBDeployment, KBRunInput
-from naptha_sdk.storage.storage_provider import StorageProvider
+from naptha_sdk.storage.storage_client import StorageClient
 from naptha_sdk.storage.schemas import (
     CreateStorageRequest, ReadStorageRequest, StorageType,
     DatabaseReadOptions
@@ -21,7 +21,7 @@ class EmbeddingKB:
     def __init__(self, deployment: KBDeployment):
         self.deployment = deployment
         self.config = self.deployment.config
-        self.storage_provider = StorageProvider(self.deployment.node)
+        self.storage_client = StorageClient(self.deployment.node)
         self.table_name = self.config.storage_config.path
         self.storage_type = self.config.storage_config.storage_type
 
@@ -85,7 +85,7 @@ class EmbeddingKB:
                     "data": doc
                 }
             )
-            await self.storage_provider.execute(create_request)
+            await self.storage_client.execute(create_request)
 
         return {"status": "success", "message": f"Successfully added {input_data['path']} to table {self.table_name}"}
 
@@ -107,7 +107,7 @@ class EmbeddingKB:
             options=db_read_options.model_dump()
         )
 
-        read_result = await self.storage_provider.execute(read_request)
+        read_result = await self.storage_client.execute(read_request)
         results = read_result.data if hasattr(read_result, 'data') else read_result
         
         if isinstance(results, list) and results:
@@ -118,7 +118,7 @@ async def create(deployment: KBDeployment):
     file_path = Path(__file__).resolve()
     init_data_path = file_path.parent / "data"
 
-    storage_provider = StorageProvider(deployment.node)
+    storage_client = StorageClient(deployment.node)
     table_name = deployment.config.storage_config.path
     schema = deployment.config.storage_config.storage_schema
 
@@ -133,7 +133,7 @@ async def create(deployment: KBDeployment):
         options={"schema": schema, "create_table": True}
     )
 
-    await storage_provider.execute(create_table_request)
+    await storage_client.execute(create_table_request)
 
     pdf_file_paths = list(init_data_path.glob("*.pdf"))
 
@@ -153,7 +153,7 @@ async def create(deployment: KBDeployment):
                 'data': doc
             }
         )
-        await storage_provider.execute(create_row_request)
+        await storage_client.execute(create_row_request)
 
     return {"status": "success", "message": f"Successfully populated {table_name} table with {len(all_documents)} chunks"}
 
